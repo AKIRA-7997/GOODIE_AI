@@ -1,30 +1,34 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:mlproject/main.dart';
+import 'package:retail_inventory_ai/models/prediction_result.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  test('PredictionResult parses the backend response correctly', () {
+    final result = PredictionResult.fromJson(
+      store: 'Downtown Store',
+      product: 'Wireless Earbuds',
+      json: {
+        'expected_demand': 320,
+        'current_inventory': 300,
+        'safety_stock': 38,
+        'recommended_inventory': 358,
+        'restock_quantity': 58,
+        'surplus_quantity': 0,
+        'stock_status': 'Low',
+        'risk_level': 'High',
+        'demand_change': 140,
+        'demand_change_percentage': 77.78,
+        'business_advice': 'Order additional stock.',
+        'demand_factors': ['Active promotion'],
+        'confidence': 0.91,
+      },
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(result.store, 'Downtown Store');
+    expect(result.product, 'Wireless Earbuds');
+    expect(result.expectedDemand, 320);
+    expect(result.restockQuantity, 58);
+    expect(result.requiresRestock, isTrue);
+    expect(result.hasSurplus, isFalse);
+    expect(result.confidenceLabel, '91.0%');
   });
 }
