@@ -1,0 +1,86 @@
+# ============================================
+# GOODIE AI — Flutter + Python/Flask
+# ============================================
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.secret
+
+# Python environments and caches
+venv/
+.venv/
+env/
+backend/venv/
+backend/.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Flutter and Dart generated files
+.dart_tool/
+.packages
+.pub-cache/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+coverage/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+
+# Android generated/local files
+android/.gradle/
+android/.kotlin/
+android/local.properties
+android/app/src/main/java/io/flutter/plugins/GeneratedPluginRegistrant.java
+android/app/debug/
+android/app/profile/
+android/app/release/
+
+# iOS generated files
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/ephemeral/
+ios/Pods/
+ios/.symlinks/
+
+# macOS generated files
+macos/Flutter/ephemeral/
+macos/Pods/
+macos/.symlinks/
+
+# Linux and Windows generated files
+linux/flutter/ephemeral/
+windows/flutter/ephemeral/
+
+# IDE and editor files
+*.iml
+*.ipr
+*.iws
+.idea/
+.vscode/
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+goodie_project_tree.txt
+
+# Keep the trained Goodie AI model and project dataset versioned.
+# If either exceeds GitHub's file-size limit, use Git LFS instead.
+!backend/goodie_model.pkl
+!backend/goodie_dataset.csv
+backend/goodie_model.pkl
