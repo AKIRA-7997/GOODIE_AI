@@ -1,0 +1,36 @@
+{
+  "features": [
+    "Store",
+    "Store_Type",
+    "Product",
+    "Category",
+    "Price",
+    "Cost_Price",
+    "Discount",
+    "Holiday",
+    "Weekend",
+    "Day_of_Week",
+    "Month",
+    "Season",
+    "Temperature",
+    "Rainfall_mm",
+    "Promotion",
+    "Competitor_Price",
+    "Inventory",
+    "Previous_Week_Sales",
+    "Previous_Month_Sales",
+    "Year",
+    "Day"
+  ],
+  "categorical_features": [
+    "Store",
+    "Store_Type",
+    "Product",
+    "Category",
+    "Holiday",
+    "Weekend",
+    "Day_of_Week",
+    "Season",
+    "Promotion"
+  ]
+}
