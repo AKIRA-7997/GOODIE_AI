@@ -84,3 +84,8 @@ goodie_project_tree.txt
 !backend/goodie_model.pkl
 !backend/goodie_dataset.csv
 backend/goodie_model.pkl
+.venv-review/
+.review-pub-cache/
+.review-qa/
+.tool-state/
+.pytest-review-temp/

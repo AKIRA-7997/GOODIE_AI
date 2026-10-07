@@ -1,5 +1,30 @@
 # GOODIE AI
 
+## Retailer workflow update
+
+Sold / Received buttons update on-hand stock directly and retain the latest 20
+stock movements per product. Sales cannot exceed available stock. Each movement
+clears the previous estimate so the next order uses current stock. These entries
+do not update the manually supplied seven-day sales figure; the sale dialog
+states this explicitly. This is a local activity list, not a complete audit ledger.
+
+Main navigation: My shop, Products, Stock plan. Product forms include branch
+locality and the last seven days' sales. Location is organizational context only;
+no population, footfall or local purchasing pattern is inferred from an area name.
+
+Calculate order is an offline **sales-based baseline**, not the trained model:
+next-seven-day sales = entered last-seven-day units; target = ceil(sales * 1.2);
+order = max(0, target - stock). The 20% buffer is visible in the interface.
+Stockouts, lead times and seasonality are not accounted for. Advanced forecast
+retains the existing experimental model service and requires its full inputs.
+
+Try 3 sample products adds clearly tagged, fictional A/B/C products in a Sample
+branch. It never replaces real products or the business name. Remove deletes
+only tagged sample products. Repeat loading does not duplicate existing samples.
+Sample totals are included while samples are present; a banner makes this visible.
+Saved products and forecasts remain device-local. This update is not a claim of
+production readiness or validated purchasing recommendations.
+
 Retail inventory and demand planning for a single-device business workspace.
 
 ## Workspace
@@ -52,3 +77,30 @@ python -m unittest discover -s backend/tests -v
 ```
 
 API tests use an explicit predictor fixture and do not claim to measure trained-model accuracy.
+
+## This laptop: PR 1 checkout
+
+The complete pre-PR project source, local data and deliverables were preserved at
+`C:\Users\gowth\OneDrive\Desktop\ML PROJECT-backup-20261006-before-PR1`.
+`original-active-files` contains the original replaced folders, including the old
+backend database and model. Generated caches were not copied. Existing legacy
+`ml`, `docs`, `outputs` and `backups` folders are retained but do not describe this
+branch's current model or UI. The old SQLite shop data is not automatically
+converted into the new device-local inventory schema.
+
+Use two terminals from this project root:
+
+```powershell
+.\.venv-review\Scripts\python.exe backend\app.py
+```
+
+```powershell
+flutter pub get
+flutter run -d emulator-5554 --dart-define=GOODIE_API_URL=http://10.0.2.2:5000
+```
+
+The emulator ID may differ; use `flutter devices` to check. Debug builds allow
+HTTP only for emulator-host/loopback addresses; release configuration remains
+unchanged. If a workspace already has an endpoint saved, update it in Settings.
+The local model was rebuilt using this branch's 100,000-row dataset and training
+script. Its random-split evaluation is not a temporal/generalization guarantee.

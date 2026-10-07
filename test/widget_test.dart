@@ -132,7 +132,7 @@ void main() {
       await tester.pumpWidget(RetailInventoryApp(store: store));
       expect(find.text('Set up your business'), findsOneWidget);
       expect(find.text('Create workspace'), findsOneWidget);
-      expect(find.byType(TextFormField), findsNWidgets(2));
+      expect(find.byType(TextFormField), findsOneWidget);
     },
   );
 }

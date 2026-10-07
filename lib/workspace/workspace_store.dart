@@ -14,22 +14,22 @@ class StockItem {
   int get stock => (values['inventory'] as num).toInt();
   int get reorder => (values['reorder_point'] as num).toInt();
   Map<String, dynamic> toJson() => {
-    'id': id,
-    'values': values,
-    'forecast': forecast,
-  };
+        'id': id,
+        'values': values,
+        'forecast': forecast,
+      };
   factory StockItem.fromJson(Map<String, dynamic> json) => StockItem(
-    id: json['id'] as String,
-    values: Map<String, dynamic>.from(json['values'] as Map),
-    forecast: json['forecast'] == null
-        ? null
-        : Map<String, dynamic>.from(json['forecast'] as Map),
-  );
+        id: json['id'] as String,
+        values: Map<String, dynamic>.from(json['values'] as Map),
+        forecast: json['forecast'] == null
+            ? null
+            : Map<String, dynamic>.from(json['forecast'] as Map),
+      );
 }
 
 class WorkspaceStore extends ChangeNotifier {
   WorkspaceStore(this.preferences, {http.Client? client})
-    : client = client ?? http.Client();
+      : client = client ?? http.Client();
   final http.Client client;
 
   @override
@@ -51,9 +51,9 @@ class WorkspaceStore extends ChangeNotifier {
   int get lowStock => _items.where((item) => item.stock <= item.reorder).length;
   Set<String> get branches => _items.map((item) => item.branch).toSet();
   double get stockValue => _items.fold(
-    0,
-    (sum, item) => sum + item.stock * (item.values['cost_price'] as num),
-  );
+        0,
+        (sum, item) => sum + item.stock * (item.values['cost_price'] as num),
+      );
 
   void restore() {
     try {
@@ -134,10 +134,39 @@ class WorkspaceStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> changeStock(String id, int quantity,
+      {required bool delivery}) async {
+    if (quantity <= 0 || quantity > 1000000) {
+      throw StateError('Enter 1–1000000 whole units.');
+    }
+    final index = _items.indexWhere((item) => item.id == id);
+    if (index < 0) throw StateError('This product no longer exists.');
+    final item = _items[index];
+    if (!delivery && quantity > item.stock) {
+      throw StateError('You only have ${item.stock} units available.');
+    }
+    final next = item.stock + (delivery ? quantity : -quantity);
+    if (next > 1000000) throw StateError('Stock cannot exceed 1000000 units.');
+    final history =
+        List<dynamic>.from(item.values['stock_activity'] as List? ?? []);
+    history.insert(0, {
+      'kind': delivery ? 'Received' : 'Sold',
+      'units': quantity,
+      'at': DateTime.now().toIso8601String(),
+      'balance': next
+    });
+    await saveItem(StockItem(id: id, values: {
+      ...item.values,
+      'inventory': next,
+      'stock_activity': history.take(20).toList()
+    }));
+  }
+
   Future<void> forecast(StockItem item) async {
     if (busyId != null) return;
-    if (endpoint.isEmpty)
+    if (endpoint.isEmpty) {
       throw StateError('Add your forecast service in Settings.');
+    }
     const required = [
       'store_type',
       'competitor_price',
@@ -150,8 +179,9 @@ class WorkspaceStore extends ChangeNotifier {
       'promotion',
       'holiday',
     ];
-    if (required.any((key) => !item.values.containsKey(key)))
+    if (required.any((key) => !item.values.containsKey(key))) {
       throw StateError('Complete forecast inputs in Edit product first.');
+    }
     busyId = item.id;
     notifyListeners();
     try {
@@ -183,8 +213,9 @@ class WorkspaceStore extends ChangeNotifier {
           )
           .timeout(const Duration(seconds: 30));
       if (response.statusCode != 200) {
-        if (response.statusCode == 400)
+        if (response.statusCode == 400) {
           throw StateError('Check the product details and try again.');
+        }
         throw StateError('Forecast service is unavailable. Try again later.');
       }
       final data = jsonDecode(response.body) as Map<String, dynamic>;
@@ -222,5 +253,84 @@ class WorkspaceStore extends ChangeNotifier {
       busyId = null;
       notifyListeners();
     }
+  }
+
+  Future<void> planOrder(StockItem item) async {
+    final sales = item.values['previous_week_sales'];
+    if (sales is! num ||
+        !sales.isFinite ||
+        sales < 0 ||
+        sales != sales.roundToDouble()) {
+      throw StateError('Add units sold in the last 7 days first.');
+    }
+    final target = (sales * 1.2).ceil();
+    final order = target > item.stock ? target - item.stock : 0;
+    final old = item.forecast;
+    item.forecast = {
+      'expected_demand': sales.toInt(),
+      'recommended_inventory': target,
+      'restock_quantity': order,
+      'generated_at': DateTime.now().toIso8601String(),
+      'method': 'last_7_days',
+      'horizon_days': 7,
+    };
+    try {
+      await _persist();
+    } catch (_) {
+      item.forecast = old;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> addSamples() async {
+    if (_items.any((item) => item.values['sample'] == true)) return;
+    final before = List<StockItem>.from(_items);
+    final oldBusiness = business;
+    if (!ready) business = 'Sample shop';
+    final stamp = DateTime.now().microsecondsSinceEpoch;
+    for (var i = 0; i < 3; i++) {
+      _items.add(StockItem(id: 'sample-$stamp-$i', values: {
+        'sample': true,
+        'product': [
+          'Product A · Rice 1 kg',
+          'Product B · Milk 1 L',
+          'Product C · Soap'
+        ][i],
+        'store': 'Sample branch',
+        'area': 'Anna Nagar, Chennai',
+        'category': 'Groceries',
+        'inventory': [12, 6, 45][i],
+        'reorder_point': [15, 10, 10][i],
+        'price': [65, 60, 35][i],
+        'cost_price': [50, 48, 25][i],
+        'previous_week_sales': [28, 42, 14][i],
+        'date': DateTime.now().toIso8601String().substring(0, 10),
+      }));
+    }
+    try {
+      await _persist();
+    } catch (_) {
+      _items
+        ..clear()
+        ..addAll(before);
+      business = oldBusiness;
+      rethrow;
+    }
+    notifyListeners();
+  }
+
+  Future<void> removeSamples() async {
+    final before = List<StockItem>.from(_items);
+    _items.removeWhere((item) => item.values['sample'] == true);
+    try {
+      await _persist();
+    } catch (_) {
+      _items
+        ..clear()
+        ..addAll(before);
+      rethrow;
+    }
+    notifyListeners();
   }
 }
