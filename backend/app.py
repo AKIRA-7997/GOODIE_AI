@@ -1,4 +1,7 @@
 from pathlib import Path
+from datetime import date
+import math
+import os
 
 import joblib
 import pandas as pd
@@ -9,26 +12,19 @@ BASE_DIR = Path(__file__).resolve().parent
 MODEL_PATH = BASE_DIR / "goodie_model.pkl"
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=os.environ.get('GOODIE_ALLOWED_ORIGINS', 'http://localhost:8080').split(','))
 
-if not MODEL_PATH.exists():
-    raise FileNotFoundError(
-        f"Model not found: {MODEL_PATH}\n"
-        "Run train_model.py first."
-    )
-
-artifact = joblib.load(MODEL_PATH)
-
-pipeline = artifact["pipeline"]
-features = artifact["features"]
-metrics = artifact["metrics"]
+artifact = joblib.load(MODEL_PATH) if MODEL_PATH.exists() else None
+pipeline = artifact["pipeline"] if artifact else None
+features = artifact["features"] if artifact else []
+metrics = artifact["metrics"] if artifact else {}
 
 
 @app.get("/")
 def home():
     return jsonify(
         {
-            "status": "running",
+            "status": "ready" if pipeline is not None else "model_unavailable",
             "service": "GOODIE AI Demand Forecasting API",
             "model_metrics": metrics,
         }
@@ -40,7 +36,7 @@ def predict():
     try:
         data = request.get_json(silent=True)
 
-        if not data:
+        if not isinstance(data, dict) or not data:
             return jsonify(
                 {
                     "error": "JSON body is required",
@@ -85,6 +81,36 @@ def predict():
                 }
             ), 400
 
+        numeric_fields = ["price", "cost_price", "discount", "temperature", "rainfall_mm",
+                          "competitor_price", "inventory", "previous_week_sales",
+                          "previous_month_sales", "year", "month", "day"]
+        whole_fields = {"inventory", "previous_week_sales", "previous_month_sales", "year", "month", "day"}
+        for field in numeric_fields:
+            value = data[field]
+            if isinstance(value, bool):
+                raise ValueError(f"{field} must be numeric")
+            number = float(value)
+            if not math.isfinite(number) or (field != "temperature" and number < 0):
+                raise ValueError(f"{field} is out of range")
+            if field in whole_fields and not number.is_integer():
+                raise ValueError(f"{field} must be a whole number")
+        if not 0 <= float(data["discount"]) <= 100:
+            raise ValueError("discount must be between 0 and 100")
+        if not -60 <= float(data["temperature"]) <= 60:
+            raise ValueError("temperature must be between -60 and 60")
+        forecast_date = date(int(data["year"]), int(data["month"]), int(data["day"]))
+        if data["day_of_week"] != forecast_date.strftime("%A"):
+            raise ValueError("day_of_week does not match the date")
+        if data["weekend"] != ("Yes" if forecast_date.weekday() >= 5 else "No"):
+            raise ValueError("weekend does not match the date")
+        for field in set(required_fields) - set(numeric_fields):
+            if not isinstance(data[field], str) or not data[field].strip() or len(data[field]) > 200:
+                raise ValueError(f"{field} is required")
+        if data["holiday"] not in ("Yes", "No") or data["promotion"] not in ("None", "Low", "Medium", "High"):
+            raise ValueError("Invalid holiday or promotion")
+        if pipeline is None:
+            return jsonify({"error": "Forecast service is unavailable"}), 503
+
         input_values = {
             "Store": str(data["store"]),
             "Store_Type": str(data["store_type"]),
@@ -122,6 +148,9 @@ def predict():
             pipeline.predict(input_row)[0]
         )
 
+        if not math.isfinite(raw_prediction):
+            raise RuntimeError("Non-finite model output")
+
         expected_demand = max(
             0,
             round(raw_prediction),
@@ -131,13 +160,6 @@ def predict():
         previous_week_sales = int(
             data["previous_week_sales"]
         )
-        discount = float(data["discount"])
-        promotion = str(data["promotion"])
-        competitor_price = float(
-            data["competitor_price"]
-        )
-        price = float(data["price"])
-
         safety_stock = max(
             5,
             round(expected_demand * 0.12),
@@ -193,74 +215,9 @@ def predict():
         else:
             demand_change_percentage = 0.0
 
-        demand_factors = []
-
-        if promotion == "Active":
-            demand_factors.append(
-                "An active promotion may increase customer demand."
-            )
-
-        if discount >= 20:
-            demand_factors.append(
-                "The large discount may produce a strong demand increase."
-            )
-        elif discount > 0:
-            demand_factors.append(
-                "The current discount may provide a moderate demand boost."
-            )
-
-        if price > competitor_price:
-            demand_factors.append(
-                "The product costs more than the competitor price, which may reduce demand."
-            )
-        elif price < competitor_price:
-            demand_factors.append(
-                "The product is cheaper than the competitor price, which may improve demand."
-            )
-
-        if str(data["holiday"]) == "Yes":
-            demand_factors.append(
-                "Holiday shopping behaviour may affect demand."
-            )
-
-        if str(data["weekend"]) == "Yes":
-            demand_factors.append(
-                "Weekend customer traffic may increase sales."
-            )
-
-        if not demand_factors:
-            demand_factors.append(
-                "Demand is mainly influenced by historical sales and normal market conditions."
-            )
-
-        if stock_status == "Critical":
-            business_advice = (
-                f"Restock at least {restock_quantity} units immediately. "
-                "Current inventory is far below the recommended level."
-            )
-        elif stock_status == "Low":
-            business_advice = (
-                f"Order approximately {restock_quantity} additional units "
-                "to reduce the risk of a stock-out."
-            )
-        elif surplus_quantity > expected_demand:
-            business_advice = (
-                "Inventory is considerably above predicted demand. "
-                "Avoid ordering more stock and consider promoting "
-                f"the surplus {surplus_quantity} units."
-            )
-        else:
-            business_advice = (
-                "Current inventory is sufficient for the predicted demand. "
-                "Continue monitoring sales before placing another order."
-            )
-
-        confidence = max(
-            0.0,
-            min(
-                0.99,
-                float(metrics.get("r2", 0.0)),
-            ),
+        business_advice = (
+            f"Order {restock_quantity} units." if restock_quantity > 0
+            else "No additional stock required."
         )
 
         return jsonify(
@@ -276,12 +233,11 @@ def predict():
                 "demand_change": demand_change,
                 "demand_change_percentage": demand_change_percentage,
                 "business_advice": business_advice,
-                "demand_factors": demand_factors,
-                "confidence": confidence,
+                "forecast_date": forecast_date.isoformat(),
             }
         ), 200
 
-    except (TypeError, ValueError, KeyError) as error:
+    except (TypeError, ValueError, KeyError, OverflowError) as error:
         return jsonify(
             {
                 "error": f"Invalid input: {error}",
@@ -293,15 +249,15 @@ def predict():
 
         return jsonify(
             {
-                "error": str(error),
+                "error": "Forecast service is unavailable",
             }
         ), 500
 
 
 if __name__ == "__main__":
     app.run(
-        host="0.0.0.0",
-        port=5000,
+        host=os.environ.get("GOODIE_HOST", "127.0.0.1"),
+        port=int(os.environ.get("PORT", "5000")),
         debug=False,
         use_reloader=False,
     )

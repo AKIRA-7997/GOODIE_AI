@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
+
 import '../constants/app_colors.dart';
 
 /// Central Material 3 dark theme definition for the app.
@@ -19,7 +19,7 @@ class AppTheme {
       ),
     );
 
-    final textTheme = GoogleFonts.interTextTheme(base.textTheme).apply(
+    final textTheme = base.textTheme.apply(
       bodyColor: AppColors.textPrimary,
       displayColor: AppColors.textPrimary,
     );
@@ -49,8 +49,10 @@ class AppTheme {
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface,
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: const BorderSide(color: AppColors.border),
@@ -75,10 +77,7 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -92,9 +91,7 @@ class AppTheme {
         ),
       ),
       textButtonTheme: TextButtonThemeData(
-        style: TextButton.styleFrom(
-          foregroundColor: AppColors.secondary,
-        ),
+        style: TextButton.styleFrom(foregroundColor: AppColors.secondary),
       ),
       dividerTheme: const DividerThemeData(
         color: AppColors.border,
@@ -102,7 +99,7 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: AppColors.surface,
-        indicatorColor: AppColors.primary.withOpacity(0.18),
+        indicatorColor: AppColors.primary.withAlpha(46),
         elevation: 0,
         height: 68,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
@@ -124,9 +121,7 @@ class AppTheme {
         backgroundColor: AppColors.cardAlt,
         contentTextStyle: const TextStyle(color: AppColors.textPrimary),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
